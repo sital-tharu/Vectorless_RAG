@@ -113,6 +113,4 @@ INDEX_DIR=data/indices
 | cryptography | Encrypted PDF support |
 | ujson | Fast JSON serialization |
 
-## 📄 License
 
-MIT
