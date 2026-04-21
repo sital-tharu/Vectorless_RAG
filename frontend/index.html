@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vectorless RAG — Indian Financial Report Analyzer</title>
+    <meta name="description"
+        content="A modern RAG system for Indian Financial Annual Reports using hierarchical JSON indexing and multi-step LLM reasoning. No vector database needed." />
+
+    <!-- Google Fonts — Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet" />
+
+    <link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+
+<body>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- TOAST CONTAINER                         -->
+    <!-- ═══════════════════════════════════════ -->
+    <div id="toast-container" aria-live="polite"></div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- ANIMATED BACKGROUND                     -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="bg-mesh" aria-hidden="true">
+        <div class="bg-orb bg-orb--1"></div>
+        <div class="bg-orb bg-orb--2"></div>
+        <div class="bg-orb bg-orb--3"></div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- HEADER                                  -->
+    <!-- ═══════════════════════════════════════ -->
+    <header class="site-header" id="site-header">
+        <div class="header-inner">
+            <div class="logo">
+                <span class="logo-icon">🇮🇳</span>
+                <h1 class="logo-text">
+                    <span class="logo-text--gradient">Vectorless</span>
+                    <span class="logo-text--sub">RAG</span>
+                </h1>
+            </div>
+            <p class="tagline">Indian Financial Annual Report Analyzer</p>
+            <div class="status-pill" id="status-pill">
+                <span class="status-dot" id="status-dot"></span>
+                <span class="status-label" id="status-label">Connecting…</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- TAB NAVIGATION                          -->
+    <!-- ═══════════════════════════════════════ -->
+    <nav class="tab-nav" id="tab-nav" aria-label="Main navigation">
+        <div class="tab-nav-inner">
+            <button class="tab-btn active" data-tab="upload" id="tab-btn-upload" aria-selected="true">
+                <span class="tab-icon">📤</span>
+                <span class="tab-label">Upload & Ingest</span>
+            </button>
+            <button class="tab-btn" data-tab="query" id="tab-btn-query" aria-selected="false">
+                <span class="tab-icon">💬</span>
+                <span class="tab-label">Query Chat</span>
+            </button>
+            <button class="tab-btn" data-tab="explorer" id="tab-btn-explorer" aria-selected="false">
+                <span class="tab-icon">📁</span>
+                <span class="tab-label">Index Explorer</span>
+            </button>
+            <div class="tab-slider" id="tab-slider"></div>
+        </div>
+    </nav>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- MAIN CONTENT                            -->
+    <!-- ═══════════════════════════════════════ -->
+    <main class="main-content" id="main-content">
+
+        <!-- ─── UPLOAD PANEL ─── -->
+        <section class="panel panel--active" id="panel-upload" aria-labelledby="tab-btn-upload">
+            <div class="panel-card glass-card fade-in">
+                <div class="panel-header">
+                    <h2>Upload Annual Report</h2>
+                    <p class="panel-subtitle">Drop an Indian Financial Annual Report PDF to build its PageIndex</p>
+                </div>
+
+                <!-- Drop Zone -->
+                <div class="drop-zone" id="drop-zone">
+                    <div class="drop-zone-content" id="drop-zone-content">
+                        <div class="drop-icon" id="drop-icon">
+                            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                                <polyline points="14 2 14 8 20 8" />
+                                <line x1="12" y1="18" x2="12" y2="12" />
+                                <polyline points="9 15 12 12 15 15" />
+                            </svg>
+                        </div>
+                        <p class="drop-text">Drag & drop your PDF here</p>
+                        <p class="drop-hint">or click to browse files</p>
+                        <span class="drop-formats">Accepts: .pdf only</span>
+                    </div>
+                    <input type="file" id="file-input" accept=".pdf" hidden />
+                </div>
+
+                <!-- Selected File Info -->
+                <div class="file-info hidden" id="file-info">
+                    <div class="file-info-icon">📄</div>
+                    <div class="file-info-details">
+                        <span class="file-info-name" id="file-info-name"></span>
+                        <span class="file-info-size" id="file-info-size"></span>
+                    </div>
+                    <button class="file-info-remove" id="file-info-remove" title="Remove file">✕</button>
+                </div>
+
+                <!-- Ingest Button -->
+                <button class="btn btn-primary btn-lg" id="ingest-btn" disabled>
+                    <span class="btn-text">Ingest Report</span>
+                    <span class="btn-icon">→</span>
+                </button>
+
+                <!-- Progress Section -->
+                <div class="progress-section hidden" id="progress-section">
+                    <div class="progress-header">
+                        <span class="progress-title" id="progress-title">Starting ingestion…</span>
+                        <span class="progress-pct" id="progress-pct">0%</span>
+                    </div>
+                    <div class="progress-bar-track">
+                        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+                    </div>
+                    <div class="progress-steps" id="progress-steps">
+                        <div class="progress-step active" data-step="upload">
+                            <div class="step-dot"></div>
+                            <span class="step-label">Uploading</span>
+                        </div>
+                        <div class="progress-step" data-step="extract">
+                            <div class="step-dot"></div>
+                            <span class="step-label">Extracting Pages</span>
+                        </div>
+                        <div class="progress-step" data-step="summarize">
+                            <div class="step-dot"></div>
+                            <span class="step-label">Generating Summaries</span>
+                        </div>
+                        <div class="progress-step" data-step="index">
+                            <div class="step-dot"></div>
+                            <span class="step-label">Building Index</span>
+                        </div>
+                    </div>
+                    <p class="progress-detail" id="progress-detail">Preparing your document for analysis…</p>
+                </div>
+
+                <!-- Ingest Result -->
+                <div class="ingest-result hidden" id="ingest-result">
+                    <div class="result-success">
+                        <div class="result-icon">✅</div>
+                        <h3 class="result-title" id="result-title">Successfully Ingested!</h3>
+                        <p class="result-detail" id="result-detail"></p>
+                    </div>
+                    <div class="result-preview" id="result-preview"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ─── QUERY PANEL ─── -->
+        <section class="panel" id="panel-query" aria-labelledby="tab-btn-query">
+            <div class="panel-card glass-card fade-in">
+                <!-- Report Selector -->
+                <div class="query-header">
+                    <h2>Query Annual Report</h2>
+                    <div class="report-selector">
+                        <label for="report-select" class="selector-label">Analyzing:</label>
+                        <div class="select-wrapper">
+                            <select id="report-select" class="select-input">
+                                <option value="" disabled selected>Select a report…</option>
+                            </select>
+                            <span class="select-arrow">▾</span>
+                        </div>
+                        <button class="btn btn-sm btn-ghost" id="refresh-reports-btn"
+                            title="Refresh report list">⟳</button>
+                    </div>
+                </div>
+
+                <!-- Chat Area -->
+                <div class="chat-area" id="chat-area">
+                    <div class="chat-empty" id="chat-empty">
+                        <div class="chat-empty-icon">💡</div>
+                        <h3>Ask anything about the report</h3>
+                        <p>Select a report above, then ask questions like:</p>
+                        <div class="example-queries">
+                            <button class="example-query" data-query="What was the total revenue for FY26?">What was the
+                                total revenue for FY26?</button>
+                            <button class="example-query" data-query="Show me the debt-to-equity ratio">Show me the
+                                debt-to-equity ratio</button>
+                            <button class="example-query"
+                                data-query="What are the key highlights from the Director's Report?">Key highlights from
+                                Director's Report?</button>
+                        </div>
+                    </div>
+                    <div class="chat-messages" id="chat-messages"></div>
+                </div>
+
+                <!-- Pipeline Progress (during query) -->
+                <div class="pipeline-progress hidden" id="pipeline-progress">
+                    <div class="pipeline-steps">
+                        <div class="pipeline-step active" id="pipe-step-nav">
+                            <div class="pipeline-step-indicator">
+                                <div class="pipeline-spinner"></div>
+                                <span class="pipeline-step-num">A</span>
+                            </div>
+                            <div class="pipeline-step-info">
+                                <span class="pipeline-step-name">Navigator</span>
+                                <span class="pipeline-step-desc">Finding relevant pages…</span>
+                            </div>
+                        </div>
+                        <div class="pipeline-connector"></div>
+                        <div class="pipeline-step" id="pipe-step-read">
+                            <div class="pipeline-step-indicator">
+                                <div class="pipeline-spinner"></div>
+                                <span class="pipeline-step-num">B</span>
+                            </div>
+                            <div class="pipeline-step-info">
+                                <span class="pipeline-step-name">Reader</span>
+                                <span class="pipeline-step-desc">Extracting page content…</span>
+                            </div>
+                        </div>
+                        <div class="pipeline-connector"></div>
+                        <div class="pipeline-step" id="pipe-step-expert">
+                            <div class="pipeline-step-indicator">
+                                <div class="pipeline-spinner"></div>
+                                <span class="pipeline-step-num">C</span>
+                            </div>
+                            <div class="pipeline-step-info">
+                                <span class="pipeline-step-name">Expert</span>
+                                <span class="pipeline-step-desc">Generating SEBI-grade answer…</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Input -->
+                <div class="chat-input-area" id="chat-input-area">
+                    <div class="chat-input-wrapper">
+                        <textarea id="chat-input" class="chat-input" placeholder="Ask a financial question…" rows="1"
+                            maxlength="500"></textarea>
+                        <button class="btn btn-send" id="send-btn" disabled title="Send query">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13" />
+                                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ─── EXPLORER PANEL ─── -->
+        <section class="panel" id="panel-explorer" aria-labelledby="tab-btn-explorer">
+            <div class="panel-card glass-card fade-in">
+                <div class="panel-header">
+                    <h2>Index Explorer</h2>
+                    <p class="panel-subtitle">Browse all ingested annual reports and their page indices</p>
+                    <button class="btn btn-sm btn-outline" id="refresh-indices-btn">
+                        <span>⟳</span> Refresh
+                    </button>
+                </div>
+
+                <!-- Loading State -->
+                <div class="explorer-loading" id="explorer-loading">
+                    <div class="skeleton-grid">
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                        <div class="skeleton-card"></div>
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div class="explorer-empty hidden" id="explorer-empty">
+                    <div class="empty-icon">📭</div>
+                    <h3>No Reports Ingested Yet</h3>
+                    <p>Upload a PDF in the <strong>Upload & Ingest</strong> tab to get started.</p>
+                </div>
+
+                <!-- Index Cards Grid -->
+                <div class="index-grid hidden" id="index-grid"></div>
+
+                <!-- Index Detail Modal -->
+                <div class="modal-overlay hidden" id="index-modal-overlay">
+                    <div class="modal glass-card" id="index-modal">
+                        <div class="modal-header">
+                            <h3 class="modal-title" id="modal-title">Report Index</h3>
+                            <button class="modal-close" id="modal-close">✕</button>
+                        </div>
+                        <div class="modal-body" id="modal-body">
+                            <!-- Page summaries will be injected here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- FOOTER STATUS BAR                       -->
+    <!-- ═══════════════════════════════════════ -->
+    <footer class="status-bar" id="status-bar">
+        <div class="status-bar-inner">
+            <div class="status-bar-left">
+                <span class="status-bar-item">
+                    <span class="status-bar-dot" id="footer-dot"></span>
+                    <span id="footer-model">Model: —</span>
+                </span>
+            </div>
+            <div class="status-bar-right">
+                <span class="status-bar-item" id="footer-reports">0 reports indexed</span>
+                <span class="status-bar-divider">|</span>
+                <span class="status-bar-item">No Vector DB • No Embeddings</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/app.js"></script>
+</body>
+
+</html>
