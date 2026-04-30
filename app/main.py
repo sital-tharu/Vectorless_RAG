@@ -17,7 +17,9 @@ from pathlib import Path
 import ujson
 from dotenv import load_dotenv
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from app.processor import build_page_index
@@ -53,6 +55,20 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# ── CORS (allow frontend to call API) ──
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── Serve frontend static files ──
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+if FRONTEND_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
+
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # Request / Response Models
@@ -83,6 +99,15 @@ async def root():
         "status": "running",
         "docs": "/docs",
     }
+
+
+@app.get("/app", tags=["Frontend"], include_in_schema=False)
+async def serve_frontend():
+    """Serve the frontend GUI."""
+    index_path = FRONTEND_DIR / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
+    return JSONResponse({"error": "Frontend not found"}, status_code=404)
 
 
 @app.post("/ingest", tags=["Ingestion"])
